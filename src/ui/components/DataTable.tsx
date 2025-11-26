@@ -1,72 +1,65 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
+import { Loader } from "../primitives/Loader";
 
-type Column = { key: string; label: string; sortable?: boolean; render?: (row: any) => React.ReactNode };
+export type Column<T> = {
+  header: string;
+  accessor: keyof T | string;
+  sortable?: boolean;
+  render?: (row: T) => React.ReactNode;
+};
 
-interface Props {
-  data: any[];
-  columns: Column[];
+type DataTableProps<T> = {
+  data: T[];
+  columns: Column<T>[];
   loading?: boolean;
-  page: number;
-  pageSize: number;
-  total?: number;
-  onPageChange?: (page: number) => void;
-  onSort?: (key: string, dir: "asc" | "desc") => void;
-}
 
-export function DataTable({ data, columns, loading, page, pageSize, total = 0, onPageChange, onSort }: Props) {
-  if (loading) return <div className="p-6 text-center">Loading...</div>;
-  if (!data || data.length === 0) return <div className="p-6 text-center">No results</div>;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  onSortChange?: (column: string) => void;
+};
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+export function DataTable<T>({ data, columns, loading, sortBy, sortDir, onSortChange }: DataTableProps<T>) {
+  if (loading) return <Loader />;
+
+  if (!data.length)
+    return <div className="text-gray-500 py-4">No results found</div>;
 
   return (
-    <div className="w-full overflow-x-auto">
-      <table className="min-w-full bg-white border">
-        <thead className="bg-gray-100">
-          <tr>
+    <table className="w-full border-collapse">
+      <thead>
+        <tr className="border-b">
+          {columns.map((col) => (
+            <th
+              key={col.header}
+              className="text-left p-2 font-semibold cursor-pointer select-none"
+              onClick={() =>
+                col.sortable && onSortChange?.(col.accessor as string)
+              }
+            >
+              <div className="flex items-center gap-1">
+                {col.header}
+
+                {col.sortable && sortBy === col.accessor && (
+                  <span>{sortDir === "asc" ? "▲" : "▼"}</span>
+                )}
+              </div>
+            </th>
+          ))}
+        </tr>
+      </thead>
+
+      <tbody>
+        {data.map((row, i) => (
+          <tr key={i} className="border-b hover:bg-gray-50">
             {columns.map((col) => (
-              <th key={col.key} className="p-3 text-left">
-                <div className="flex items-center gap-2">
-                  <span>{col.label}</span>
-                  {col.sortable && (
-                    <SortButtons onSort={(dir) => onSort && onSort(col.key, dir)} />
-                  )}
-                </div>
-              </th>
+              <td key={col.header} className="p-2">
+                {col.render ? col.render(row) : (row as any)[col.accessor]}
+              </td>
             ))}
           </tr>
-        </thead>
-
-        <tbody>
-          {data.map((row, i) => (
-            <tr key={i} className="border-b hover:bg-gray-50">
-              {columns.map((col) => (
-                <td key={col.key} className="p-3 align-top">
-                  {col.render ? col.render(row) : String(row[col.key] ?? "")}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Pagination */}
-      <div className="flex items-center justify-between py-3 px-2">
-        <div className="text-sm text-gray-600">Page {page} of {totalPages}</div>
-        <div className="flex gap-2">
-          <button className="px-3 py-1 border rounded" onClick={() => onPageChange && onPageChange(Math.max(1, page - 1))} disabled={page <= 1}>Prev</button>
-          <button className="px-3 py-1 border rounded" onClick={() => onPageChange && onPageChange(Math.min(totalPages, page + 1))} disabled={page >= totalPages}>Next</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SortButtons({ onSort }: { onSort: (dir: "asc" | "desc") => void }) {
-  return (
-    <div className="flex flex-col">
-      <button onClick={() => onSort("asc")} className="text-xs leading-none">▲</button>
-      <button onClick={() => onSort("desc")} className="text-xs leading-none">▼</button>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }

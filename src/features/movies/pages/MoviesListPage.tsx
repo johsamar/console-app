@@ -1,9 +1,13 @@
-import React, { useState, useCallback } from "react";
+import { useState } from "react";
 import { useQuery } from "@apollo/client/react";
 import { SEARCH_MOVIES } from "../graphql/queries";
-import { DataTablePage } from "@/ui/patterns/DataTablePage";
-import { DataTable } from "@/ui/components/DataTable";
+
+import { ListPagePattern } from "@/ui/patterns/ListPagePattern";
+import { TextInput } from "@/ui/primitives/TextInput";
+import { Button } from "@/ui/primitives/Button";
+
 import { MovieFilters } from "../components/MovieFilters";
+
 type SearchMoviesResult = {
   searchMovies: {
     page: number;
@@ -28,7 +32,7 @@ export default function MoviesListPage() {
     SEARCH_MOVIES,
     {
       variables: {
-        query: queryText || "",
+        query: queryText,
         page,
         year,
         genreIds: genreId ? [genreId] : [],
@@ -38,37 +42,77 @@ export default function MoviesListPage() {
     }
   );
 
-  const onSearch = useCallback(() => {
+  // 🔥 Reset de página al borrar búsqueda
+  const handleSearchInput = (value: string) => {
+    setQueryText(value);
+
+    // Siempre cambiamos page → esto dispara loading automáticamente
     setPage(1);
-    refetch();
-  }, [refetch]);
+
+    // Cuando borran todo
+    if (value.trim() === "") {
+      refetch({
+        query: "",
+        page: 1,
+        year,
+        genreIds: genreId ? [genreId] : [],
+        sortBy: sort.key ? { field: sort.key, direction: sort.dir } : null,
+      });
+      return;
+    }
+
+    // Cuando escriben
+    refetch({
+      query: value,
+      page: 1,
+      year,
+      genreIds: genreId ? [genreId] : [],
+      sortBy: sort.key ? { field: sort.key, direction: sort.dir } : null,
+    });
+  };
+
+  // Sorting
+  const handleSortChange = (column: string) => {
+    setSort((prev) => {
+      const dir: "asc" | "desc" =
+        prev.key === column && prev.dir === "asc" ? "desc" : "asc";
+
+      const newSort = { key: column, dir };
+
+      refetch({
+        page: 1,
+        sortBy: { field: column, direction: dir },
+        query: queryText,
+        year,
+        genreIds: genreId ? [genreId] : [],
+      });
+
+      return newSort;
+    });
+
+    setPage(1);
+  };
 
   const columns = [
-    { key: "title", label: "Title", sortable: true },
-    { key: "year", label: "Year", sortable: true },
-    { key: "rating", label: "Rating", sortable: true },
+    { header: "Title", accessor: "title", sortable: true },
+    { header: "Year", accessor: "year", sortable: true },
+    { header: "Rating", accessor: "rating", sortable: true },
   ];
 
   return (
-    <DataTablePage
+    <ListPagePattern
       title="Movies"
       description="Search movies from TMDB"
-      table={
+      filters={
         <>
-          <div className="flex items-center gap-3 mb-4">
-            <input
-              value={queryText}
-              onChange={(e) => setQueryText(e.target.value)}
-              className="p-2 border rounded flex-1"
-              placeholder="Search by title..."
-            />
-            <button
-              onClick={onSearch}
-              className="px-4 py-2 bg-blue-600 text-white rounded"
-            >
-              Search
-            </button>
-          </div>
+          <TextInput
+            label="Search"
+            value={queryText}
+            placeholder="Search by title..."
+            onChange={handleSearchInput}
+          />
+
+          <Button onClick={() => refetch({ page: 1 })}>Search</Button>
 
           <MovieFilters
             genres={[
@@ -78,29 +122,24 @@ export default function MoviesListPage() {
             onChange={({ genreId, year }) => {
               setGenreId(genreId);
               setYear(year);
+              setPage(1);
+              refetch();
             }}
           />
-
-          <div className="mt-4">
-            <DataTable
-              data={data?.searchMovies?.results ?? []}
-              loading={loading}
-              columns={columns}
-              page={data?.searchMovies?.page ?? page}
-              pageSize={20}
-              total={data?.searchMovies?.total ?? 0}
-              onPageChange={(p) => {
-                setPage(p);
-                refetch({ page: p });
-              }}
-              onSort={(k, dir) => {
-                setSort({ key: k, dir });
-                refetch({ sortBy: { field: k, direction: dir } });
-              }}
-            />
-          </div>
         </>
       }
+      data={data?.searchMovies?.results ?? []}
+      loading={loading}
+      columns={columns}
+      page={page}
+      totalPages={data?.searchMovies?.total ?? 1}
+      onPageChange={(p) => {
+        setPage(p);
+        refetch({ page: p });
+      }}
+      sortBy={sort.key}
+      sortDir={sort.dir}
+      onSortChange={handleSortChange}
     />
   );
 }
