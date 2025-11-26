@@ -1,16 +1,17 @@
 import { createBrowserRouter } from "react-router-dom";
-import { ConsoleLayout } from "@/layout/ConsoleLayout";
+import LoginPage from "@/auth/pages/LoginPage";
 import MoviesListPage from "@/features/movies/pages/MoviesListPage";
-import MovieDetailPage from "@/features/movies/pages/MovieDetailPage";
+import ProtectedRoute from "../ProtectedRoute";
+import { ConsoleLayout } from "@/layout/ConsoleLayout";
 
 export const router = createBrowserRouter([
+  { path: "/login", element: <LoginPage /> },
   {
     path: "/",
     element: <ConsoleLayout />,
     children: [
-      { index: true, element: <div className="p-4">Welcome</div> },
-      { path: "movies", element: <MoviesListPage /> },
-      { path: "movies/:id", element: <MovieDetailPage /> },
+      { path: "movies", element: <ProtectedRoute><MoviesListPage/></ProtectedRoute> },
+      // otras rutas...
     ],
   },
 ]);
